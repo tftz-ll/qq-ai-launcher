@@ -1,0 +1,10 @@
+{
+  "qzone": {
+    "name": "QQ 空间", "plugin": "astrbot_plugin_qzone", "version": "3.1.3",
+    "commit": "0f5720f78d7bba45d94778580397e08fcfd02570",
+    "url": "https://codeload.github.com/Zhalslar/astrbot_plugin_qzone/zip/0f5720f78d7bba45d94778580397e08fcfd02570",
+    "sha256": "5d9c5bc73d7ff2f4ebc91b6fa1d63765e8064692bc38e55909fdec51d7929564",
+    "upstream": "https://github.com/Zhalslar/astrbot_plugin_qzone"
+  },
+  "bilibili": { "name": "哔哩哔哩", "available": false, "reason": "预留接入位置；私信、评论和直播弹幕适配仍待选型验证" }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "qq-ai-launcher",
+  "version": "0.2.0",
+  "private": true,
+  "description": "个人 QQ AI 安装与启动面板",
+  "author": "QQ AI 小屋",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.cjs",
+    "check": "node scripts/check.cjs",
+    "build": "electron-builder --win portable --x64",
+    "pack": "electron-builder --win --x64 --dir"
+  },
+  "dependencies": {
+    "yauzl": "3.2.0"
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0",
+    "playwright": "1.58.2"
+  },
+  "build": {
+    "appId": "local.qqai.launcher",
+    "productName": "QQ AI 小屋",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "resources/**/*",
+      "package.json",
+      "LICENSE",
+      "NOTICE.md"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "resources/app.ico",
+      "artifactName": "QQ-AI-Launcher-${version}-${arch}.${ext}",
+      "signExecutable": false
+    },
+    "portable": {
+      "requestExecutionLevel": "user"
+    }
+  },
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tftz-ll/qq-ai-launcher.git"
+  },
+  "homepage": "https://github.com/tftz-ll/qq-ai-launcher#readme",
+  "bugs": {
+    "url": "https://github.com/tftz-ll/qq-ai-launcher/issues"
+  }
+}

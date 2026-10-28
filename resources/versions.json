@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "verifiedAt": "2026-10-28",
+  "qualification": "source-reviewed; live QQ and DeepSeek acceptance pending",
+  "python": "3.12.12",
+  "astrbot": {
+    "version": "4.29.3",
+    "url": "https://codeload.github.com/AstrBotDevs/AstrBot/zip/refs/tags/v4.29.3",
+    "sha256": "4f7187273a3fa3e9bea327e1338dcff7567af5ab095c4847da12452ad22d8508",
+    "stripPrefix": "AstrBot-4.29.3/"
+  },
+  "dashboard": {
+    "version": "4.29.3",
+    "url": "https://github.com/AstrBotDevs/AstrBot/releases/download/v4.29.3/AstrBot-v4.29.3-dashboard.zip",
+    "sha256": "a09f560c4140b930180f63a4929c885da80e24fb9bbda56619727bd25e985a11"
+  },
+  "napcat": {
+    "version": "4.18.41",
+    "url": "https://github.com/NapNeko/NapCatQQ/releases/download/v4.18.41/NapCat.Shell.Windows.Node.zip",
+    "sha256": "51fbb10e7bcd56b0c2a6de86c37811e7518330e48a137ac689ab1e4d8627d3f0"
+  },
+  "uv": {
+    "version": "0.13.6",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.13.6/uv-x86_64-pc-windows-msvc.zip",
+    "sha256": "a2a8820d5eea32f08ef467ef3b7f66883a9b076d5737a2fc2fbb5f458d1bb50f"
+  }
+}
