@@ -1,5 +1,5 @@
 const DEFAULTS = {
-  name: '', persona: '', model: 'deepseek-flash', trigger: 'mention', prefix: '',
+  name: '', persona: '', model: 'deepseek-flash', trigger: 'mention', prefix: '', modelProvider: '', personaId: '',
   activeReply: { enable: false, probability: 0.1, groups: [] },
   qzone: { enable: false, view: true, publish: true, images: true, like: true, comment: true, delete: false, ai: false, autoPublish: false, autoComment: false, publishCron: '', commentCron: '' },
 };
@@ -11,9 +11,10 @@ function validateSettings(input) {
   if(!input || typeof input !== 'object') throw new Error('配置格式无效。');
   const value = normalizeSettings(input);
   value.name = String(value.name || '').trim(); value.persona = String(value.persona || '').trim(); value.prefix = String(value.prefix || '').trim();
-  if(!value.name || value.name.length > 32) throw new Error('请先为自己的角色取一个名字（1–32 个字符）。');
-  if(!value.persona || value.persona.length > 8000) throw new Error('请填写角色设定，也可以先选择一个模板再自由修改。');
+  if((!value.name && !value.personaId) || value.name.length > 32) throw new Error('请先为自己的角色取一个名字（1–32 个字符）。');
+  if((!value.persona && !value.personaId) || value.persona.length > 8000) throw new Error('请填写角色设定，也可以先选择一个模板再自由修改。');
   if(!['deepseek-flash','deepseek-v4-pro'].includes(value.model)) throw new Error('请选择支持的模型。');
+  for(const key of ['modelProvider','personaId']) if(typeof value[key] !== 'string' || value[key].length > 200 || /[\u0000-\u001f]/.test(value[key])) throw new Error('工作台选择项无效。');
   if(!['mention','prefix'].includes(value.trigger)) throw new Error('请选择消息触发方式。');
   if(value.trigger === 'prefix' && (!value.prefix || value.prefix.length > 20)) throw new Error('请输入 1–20 个字符的触发词。');
   if(typeof value.activeReply.enable !== 'boolean' || !Number.isFinite(value.activeReply.probability) || value.activeReply.probability < 0 || value.activeReply.probability > 1) throw new Error('主动接话概率应在 0%–100% 之间。');
@@ -24,6 +25,7 @@ function validateSettings(input) {
   if(value.qzone.autoPublish && (!value.qzone.publish || !value.qzone.publishCron)) throw new Error('定时发布需要开启发布功能并设置时间。');
   if(value.qzone.autoComment && (!value.qzone.comment || !value.qzone.commentCron)) throw new Error('定时评论需要开启评论功能并设置时间。');
   if(value.qzone.ai && !['view','publish','images','like','comment'].every(k => value.qzone[k])) throw new Error('现成插件的 AI 工具同时包含查看、点赞、评论和图文发布，请启用这五项后再允许 AI 调用。');
+  if(value.qzone.ai && value.personaId) throw new Error('空间 AI 工具由小屋角色管理。使用原生人设时，请先关闭此项，再到原生人设页面选择工具。');
   return value;
 }
 function patchQzone(original, prefs) {

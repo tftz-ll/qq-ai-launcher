@@ -13,6 +13,8 @@ const { DEFAULTS, normalizeSettings, validateSettings, patchQzone, validateQzone
 const { download } = require('./core/download.cjs');
 const integrations = require('../resources/integrations.json');
 const { prepareQzoneDependencies } = require('./core/integrations.cjs');
+const { Workspace } = require('./core/workspace.cjs');
+const { MODEL, PERSONA } = require('./core/config.cjs');
 protocol.registerSchemesAsPrivileged([{ scheme: 'qqai-media', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
 let window;
@@ -65,6 +67,7 @@ async function exclusive(task) {
   finally { busy = false; }
 }
 async function requireReady() { const st = await state(); if(st?.phase !== 'ready') throw new Error('请先完成安装。'); return st; }
+async function workspace() { await requireReady(); if(!(await services())?.astrbot?.running) throw new Error('请先启动 AstrBot，等待就绪后使用工作台。'); return new Workspace(await api(),root); }
 async function services() {
   const secrets = await loadSecrets();
   if(!secrets) return null;
@@ -201,7 +204,7 @@ const handlers = {
     await saveSecrets(root,secrets);
     if(native) native.secrets = secrets;
     st.modelTest = test;
-    st.modelApplied = false;
+    if(!prefs.modelProvider) st.modelApplied = false;
     await atomicJson(path.join(root,'.qqai-install.json'),st);
     return test;
   }),
@@ -219,7 +222,7 @@ const handlers = {
       await backup(path.join(root,'launcher-settings.json'),root);
       await atomicJson(path.join(root,'launcher-settings.json'),prefs);
       if(st.modelTest?.model !== prefs.model) delete st.modelTest;
-      st.modelApplied = !!secrets.apiKey;
+      st.modelApplied = !!prefs.modelProvider || !!secrets.apiKey;
       delete st.chainVerifiedAt;
       await atomicJson(path.join(root,'.qqai-install.json'),st);
     });
@@ -261,10 +264,33 @@ const handlers = {
     return (await api()).request('astrbot',route,body,['feed','detail'].includes(action) ? 'GET' : 'POST');
   }),
   pickQzoneImage: importImage,
-  openPanel: async component => {
+  workspaceRead: () => exclusive(async () => (await workspace()).overview()),
+  workspaceChat: input => exclusive(async () => (await workspace()).chat(input)),
+  workspacePersona: input => exclusive(async () => (await workspace()).persona(input)),
+  workspacePlugin: input => exclusive(async () => (await workspace()).plugin(input)),
+  workspaceConversations: input => exclusive(async () => (await workspace()).conversations(input)),
+  workspaceConversation: input => exclusive(async () => (await workspace()).conversation(input)),
+  workspaceSelect: input => exclusive(async () => {
+    const savedPrefs = await settings();
+    if(input?.kind === 'persona' && input.id !== PERSONA && savedPrefs.qzone.ai) throw new Error('请先在「互动与扩展」关闭小屋空间 AI 工具，再切换原生人设。原生人设的工具由其高级设置管理。');
+    const result = await (await workspace()).select(input);
+    const prefs = await settings(), st = await state();
+    if(input.kind === 'model') { prefs.modelProvider = result.id === MODEL ? '' : result.id; st.modelApplied = true; if(prefs.modelProvider) delete st.modelTest; }
+    else { prefs.personaId = result.id === PERSONA ? '' : result.id; st.personaApplied = true; }
+    await backup(path.join(root,'launcher-settings.json'),root);
+    await atomicJson(path.join(root,'launcher-settings.json'),prefs);
+    delete st.chainVerifiedAt;
+    await atomicJson(path.join(root,'.qqai-install.json'),st);
+    return result;
+  }),
+  openPanel: async input => {
     const st = await requireReady();
+    const component = typeof input === 'string' ? input : input?.component;
     if(!['astrbot','napcat'].includes(component)) throw new Error('无效的管理面板。');
-    await shell.openExternal(`http://127.0.0.1:${st.ports[component]}${component === 'napcat' ? '/webui' : ''}`);
+    const pages = { models: '/providers', personas: '/persona', plugins: '/extension/plugins', market: '/extension/plugins/market', sessions: '/session-management', conversations: '/data/conversations', logs: '/data/logs', knowledge: '/knowledge-base', cron: '/cron', mcp: '/extension/mcp', skills: '/extension/skills', config: '/config', platforms: '/platforms', chat: '/chat' };
+    const page = typeof input === 'object' ? input.page : undefined;
+    if(page && (component !== 'astrbot' || !Object.hasOwn(pages,page))) throw new Error('无效的原生功能入口。');
+    await shell.openExternal(`http://127.0.0.1:${st.ports[component]}${component === 'napcat' ? '/webui' : page ? '/#'+pages[page] : ''}`);
   },
   copyCredential: async component => {
     if(!['astrbot','napcat'].includes(component)) throw new Error('无效凭据类型。');

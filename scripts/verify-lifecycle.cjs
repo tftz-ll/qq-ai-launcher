@@ -72,7 +72,13 @@ async function main() {
     await reopened.locator('#active-enable').check();
     await reopened.locator('#active-groups').fill('123456789');
     await reopened.locator('.save-all').first().click();
-    await reopened.waitForFunction(async () => { const value = await window.qqai.invoke('snapshot'); return !value.busy && value.settings.activeReply.enable; },{},{timeout:30000});
+    let activeApplied = false;
+    for(let attempt = 0; attempt < 75; attempt++) {
+      const value = await reopened.evaluate(() => window.qqai.invoke('snapshot'));
+      if(!value.busy && value.settings.activeReply.enable) { activeApplied = true; break; }
+      await new Promise(resolve => setTimeout(resolve,400));
+    }
+    assert.equal(activeApplied,true,'Active reply update did not complete');
     const activeConfig = await readJson(path.join(root,'astrbot','data','cmd_config.json'));
     assert.equal(activeConfig.provider_ltm_settings.active_reply.enable,true);
     assert.deepEqual(activeConfig.provider_ltm_settings.active_reply.whitelist,['123456789']);

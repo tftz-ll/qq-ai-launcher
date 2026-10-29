@@ -20,14 +20,15 @@ function patchAstrBot(original, state, secrets, settings) {
   if (secrets.apiKey) {
     conf.provider_sources = upsert(conf.provider_sources, { id: MODEL, type: 'openai_chat_completion', provider: 'deepseek', provider_type: 'chat_completion', enable: true, key: [secrets.apiKey], api_base: 'https://api.deepseek.com/v1', timeout: 120 });
     conf.provider = upsert(conf.provider, { id: MODEL, provider_source_id: MODEL, type: 'openai_chat_completion', provider_type: 'chat_completion', enable: true, model: settings.model || 'deepseek-flash', model_config: {} });
-    conf.agent_runner = { ...conf.agent_runner, runner_type: 'local', config: { ...(conf.agent_runner?.config || {}), model: { ...(conf.agent_runner?.config?.model || {}), provider_id: MODEL } } };
+    conf.agent_runner = { ...conf.agent_runner, runner_type: 'local', config: { ...(conf.agent_runner?.config || {}), model: { ...(conf.agent_runner?.config?.model || {}), provider_id: settings.modelProvider || MODEL } } };
   }
+  if(settings.modelProvider) conf.agent_runner = { ...conf.agent_runner, runner_type: 'local', config: { ...conf.agent_runner?.config, model: { ...conf.agent_runner?.config?.model, provider_id: settings.modelProvider } } };
   // Only the launcher-owned trigger and model fields change; unrelated plugin fields survive.
   conf.wake_prefix = settings.trigger === 'prefix' ? [settings.prefix] : [];
   conf.platform_settings = { ...conf.platform_settings, friend_message_needs_wake_prefix: settings.trigger === 'prefix' };
   if(settings.activeReply) conf.provider_ltm_settings = { ...conf.provider_ltm_settings, active_reply: { ...conf.provider_ltm_settings?.active_reply, enable: settings.activeReply.enable, method: 'possibility_reply', possibility_reply: settings.activeReply.probability, whitelist: settings.activeReply.groups } };
   if (state.personaApplied) {
-    conf.agent_runner = { ...conf.agent_runner, runner_type: 'local', config: { ...conf.agent_runner?.config, persona: { ...conf.agent_runner?.config?.persona, persona_id: PERSONA } } };
+    conf.agent_runner = { ...conf.agent_runner, runner_type: 'local', config: { ...conf.agent_runner?.config, persona: { ...conf.agent_runner?.config?.persona, persona_id: settings.personaId || PERSONA } } };
   }
   if (!Object.keys(original).length) {
     conf.platform_settings.enable_id_white_list = false;

@@ -54,16 +54,25 @@ class NativeApi {
   async applySettings(root, prefs) {
     const current = await this.request('astrbot','/api/config/abconf?id=default',undefined,'GET');
     if(!current?.config) throw new Error('无法读取 AstrBot 当前配置。');
+    if(prefs.modelProvider) {
+      const model = current.config.provider?.find(p => p.id === prefs.modelProvider);
+      const source = current.config.provider_sources?.find(p => p.id === model?.provider_source_id);
+      if(!model || model.enable === false || model.provider_source_id && (!source || source.enable === false) || model.provider_type && model.provider_type !== 'chat_completion' || /embedding|rerank|tts|stt/.test(model.type || '')) throw new Error('工作台选择的对话模型已移除、停用或类型不符，请重新选择。');
+    }
+    if(prefs.personaId) {
+      const personas = await this.request('astrbot','/api/persona/list',undefined,'GET');
+      if(!(Array.isArray(personas) ? personas : personas?.personas)?.some(p => p.persona_id === prefs.personaId)) throw new Error('工作台选择的人设已移除，请重新选择。');
+    }
     const patched = patchAstrBot(current.config,{ ...this.state, personaApplied: true },this.secrets,prefs);
     await atomicJson(path.join(root,'backups',`astrbot-before-apply-${Date.now()}.json`),current.config);
-    if(this.secrets.apiKey) {
+    if(this.secrets.apiKey && !prefs.modelProvider) {
       const source = patched.provider_sources.find(p => p.id === MODEL);
       await this.request('astrbot','/api/config/provider_sources/update',{ original_id: MODEL, config: source });
       const model = patched.provider.find(p => p.id === MODEL);
       if(current.config.provider?.some(p => p.id === MODEL)) await this.request('astrbot','/api/config/provider/update',{ id: MODEL, config: model });
       else await this.request('astrbot','/api/config/provider/new',model);
     }
-    await this.persona(prefs);
+    if(!prefs.personaId) await this.persona(prefs);
     await this.request('astrbot','/api/config/astrbot/update',{ conf_id: 'default', config: patched });
   }
   async connect(root) {

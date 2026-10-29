@@ -18,8 +18,9 @@ function tab(name) {
   activeTab = name;
   document.querySelectorAll('.tab').forEach(el => el.classList.toggle('active',el.id === name));
   document.querySelectorAll('.nav[data-tab]').forEach(el => el.classList.toggle('active',el.dataset.tab === name));
-  $('page-title').textContent = {home:'我的小屋',settings:'角色与模型',features:'互动与扩展',appearance:'布置小屋',tools:'管理与诊断'}[name];
+  $('page-title').textContent = {home:'我的小屋',settings:'角色与模型',features:'互动与扩展',workspace:'AstrBot 工作台',appearance:'布置小屋',tools:'管理与诊断'}[name];
   manualGuide = 'auto'; $('guide-topic').value = 'auto'; guide(); window.scrollTo({top:0});
+  if(name === 'workspace') window.workspaceLoad?.(); else window.clearWorkspaceHistory?.();
 }
 document.querySelectorAll('[data-tab]').forEach(el => el.addEventListener('click',() => tab(el.dataset.tab)));
 document.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('click',() => tab(el.dataset.goto)));
@@ -33,7 +34,7 @@ function nextState(data = snapshot) {
   if(!data?.installed) return ['先选择安装位置，准备角色运行环境','install','查看安装步骤'];
   if(!data.services?.astrbot?.running || !data.services?.napcat?.running) return ['点击「启动角色」，让小屋亮灯','install','查看启动步骤'];
   if(!data.qq?.isLogin) return ['QQ 尚未登录，复制 Token 后扫码','token','查看登录步骤'];
-  if(!data.settings.name || !data.personaApplied || !data.modelApplied || !data.hasKey) return ['完成角色设定和模型配置，再点击保存并应用','model','查看配置步骤'];
+  if((!data.settings.personaId && !data.settings.name) || !data.personaApplied || !data.modelApplied || (!data.settings.modelProvider && !data.hasKey)) return ['完成角色设定和模型配置，再点击保存并应用','model','查看配置步骤'];
   if(data.onebot !== 'tcp-connected') return ['配置已应用，消息通道仍在连接','chat','查看连接排查'];
   if(!data.chainVerified) return ['配置已完成，用另一个 QQ 发消息验证完整链路','chat','查看消息测试'];
   return ['你已确认收到回复，可以开始自己的故事了','character','继续自定义角色'];
@@ -74,10 +75,17 @@ const guides = {
     '<b>仅关闭面板，后台继续</b>会保留机器人。新版后台使用安装目录内的独立运行环境，不再占用小屋的 EXE。',
     '关闭窗口右上角的 × 会询问如何离开，默认选择<b>停止并退出</b>，不会不作说明地隐藏运行。',
     '准备删除机器人<b>安装目录</b>时，需要先彻底退出。删除程序的解压目录与删除角色数据是两件事。'], '旧版遗留托管也会由新版的停止与彻底退出指令结束。小屋不会通过退出操作删除聊天、角色或插件数据。', [['停止并彻底退出',()=>action('exit')],['回到管理页',()=>tab('tools')]]],
+  workspace: ['ASTRBOT WORKSPACE','角色能力，在这里管理',[
+    '<b>模型与人设</b>读取 AstrBot 已有配置。选择后点击使用；切换模型不会自动产生付费测试调用。已有会话的单独配置可能覆盖默认值。',
+    '<b>聊天表现</b>可以分成多条发送、调整间隔、@ 或引用回复。注意字数上限：超过上限的回复仍整条发送。群聊背景会增加模型上下文。',
+    '<b>插件</b>可启用、停用和重载已安装的第三方插件。安装和复杂配置使用原生插件页面；空间插件在互动与扩展统一管理。',
+    '<b>会话</b>按需读取列表，查看时才读取正文。可更改标题和人设，不清空历史。知识库、定时任务、语音、MCP 等入口位于更多能力。'],
+    '工作台选择的默认模型和人设会被小屋记住。保存角色档案不会覆盖这些选择。需要回到小屋角色时，在工作台选 qqai-companion；模型选择 qqai-deepseek。首次打开原生网页需用本机管理密码登录。',
+    [['复制 AstrBot 管理密码',()=>action('copyCredential','astrbot','管理密码已复制，用户名为 astrbot。')],['打开原生设置',()=>action('openPanel',{component:'astrbot',page:'config'})]]],
 };
 function guide() {
   let topic = manualGuide;
-  if(topic === 'auto') topic = activeTab === 'settings' ? 'model' : activeTab === 'appearance' ? 'character' : activeTab === 'features' ? 'qzone' : activeTab === 'tools' ? 'exit' : nextState()[1];
+  if(topic === 'auto') topic = activeTab === 'workspace' ? 'workspace' : activeTab === 'settings' ? 'model' : activeTab === 'appearance' ? 'character' : activeTab === 'features' ? 'qzone' : activeTab === 'tools' ? 'exit' : nextState()[1];
   const [step,title,items,tip,buttons] = guides[topic] || guides.install;
   $('guide-step').textContent = step; $('guide-title').textContent = title; $('guide-tip-text').textContent = tip;
   const ol = document.createElement('ol'); for(const text of items) { const li = document.createElement('li'); li.innerHTML = text; ol.append(li); } $('guide-body').replaceChildren(ol);
@@ -105,7 +113,7 @@ function paintProgress(data) {
 }
 function status(name,text,kind = '') { $('status-'+name).textContent = text; $('dot-'+name).className = kind; }
 function form() {
-  return { name:$('ai-name').value,persona:$('persona').value,model:$('model').value,trigger:$('trigger').value,prefix:$('prefix').value,
+  return { ...snapshot.settings,name:$('ai-name').value,persona:$('persona').value,model:$('model').value,trigger:$('trigger').value,prefix:$('prefix').value,
     activeReply:{enable:$('active-enable').checked,probability:Number($('active-probability').value)/100,groups:$('active-groups').value.split(/\s+/).filter(Boolean)},
     qzone:Object.fromEntries([['enable',$('qzone-enable').checked],...Object.keys(qKeys).map(k => [k,$('qzone-'+k).checked]),['publishCron',$('publish-cron').value],['commentCron',$('comment-cron').value]]) };
 }
@@ -132,8 +140,11 @@ function render(data) {
   $('save-settings').disabled = !data.astrbotReady || busy; document.querySelectorAll('.save-all').forEach(b => b.disabled = !data.astrbotReady || busy);
   for(const name of ['astrbot','napcat']) { $('open-'+name).disabled = !data.services?.[name]?.running || busy; $('copy-'+name).disabled = !data.installed || busy; }
   $('reconnect').disabled = !data.qq?.isLogin || busy;
-  $('hero-title').textContent = data.settings.name ? data.settings.name+'的小屋，今天也在这里。' : '这里，等你创造一位角色。';
-  $('portrait-name').textContent = data.settings.name || '尚未命名';
+  const displayName = data.settings.personaId || data.settings.name;
+  $('hero-title').textContent = displayName ? displayName+'的小屋，今天也在这里。' : '这里，等你创造一位角色。';
+  $('portrait-name').textContent = displayName || '尚未命名';
+  $('native-selection-note').hidden = !data.settings.modelProvider && !data.settings.personaId;
+  $('native-selection-note').textContent = '工作台已选择'+(data.settings.personaId ? '人设「'+data.settings.personaId+'」' : '小屋角色')+'、'+(data.settings.modelProvider ? '模型「'+data.settings.modelProvider+'」' : '小屋 DeepSeek 模型')+'。下方保留小屋角色档案；保存不会覆盖工作台的选择。';
   $('hero-chip').textContent = data.chainVerified && data.qq?.isLogin ? '✦ 你的故事，正在继续' : running ? '✦ 小屋已经亮灯' : '✦ 新的故事，等你开启';
   $('hero-description').textContent = data.settings.name ? '名字与设定属于你。\n从一句话开始，慢慢了解彼此。' : '从一份只属于你的设定开始，\n让对话发生在熟悉的 QQ 里。';
   const [next,topic,label] = nextState(data); $('next-title').textContent = next; $('next-button').textContent = label; $('next-button').onclick = () => openGuide(topic);
@@ -144,7 +155,7 @@ function render(data) {
   status('astrbot',data.astrbotReady ? '已就绪' : data.services?.astrbot?.running ? '启动中' : data.installed ? '已停止' : '尚未安装',data.astrbotReady ? 'good' : '');
   status('napcat',data.qq ? '已就绪' : data.services?.napcat?.running ? '启动中' : data.installed ? '已停止' : '尚未安装',data.qq ? 'good' : '');
   status('onebot',data.onebot === 'tcp-connected' ? '连接已建立 · 待消息实测' : data.onebot === 'waiting' ? '正在连接' : '等待连接',data.onebot === 'tcp-connected' ? 'good' : running ? 'wait' : '');
-  status('model',data.modelTest ? data.modelApplied ? '上次测试可用 · 已应用' : '测试通过 · 待应用' : data.modelApplied ? '已配置 · 尚未实测' : '尚未测试',data.modelTest && data.modelApplied ? 'good' : data.hasKey ? 'wait' : '');
+  status('model',data.settings.modelProvider ? '已选择 '+data.settings.modelProvider+' · 待消息实测' : data.modelTest ? data.modelApplied ? '上次测试可用 · 已应用' : '测试通过 · 待应用' : data.modelApplied ? '已配置 · 尚未实测' : '尚未测试',!data.settings.modelProvider && data.modelTest && data.modelApplied ? 'good' : data.modelApplied || data.hasKey ? 'wait' : '');
   $('status-foot').textContent = data.credentialError || data.connectionError || data.napcatError || '模型状态显示最近一次测试；消息通道依据本机 TCP 连接，不代替 QQ 回复实测。';
   const stages = [data.installed,!!data.qq?.isLogin,!!data.personaApplied && !!data.modelApplied,!!data.chainVerified && data.qq?.isLogin && data.onebot === 'tcp-connected'];
   ['install','qq','model','chain'].forEach((n,i) => $(n+'-number').classList.toggle('done',!!stages[i]));
@@ -155,7 +166,8 @@ function render(data) {
   $('install-qzone').disabled = !available || data.qzoneInstalled; $('install-qzone').textContent = data.qzoneInstalled ? '✓ 插件已安装' : '安装空间插件'; $('check-qzone').disabled = !available;
   for(const [id,key] of [['load-feed','view'],['pick-qzone-image','images'],['publish-qzone','publish']]) $(id).disabled = !available || !data.qq?.isLogin || !data.settings.qzone?.enable || !data.settings.qzone?.[key] || dirty;
   if(!$('qzone-state').dataset.checked) $('qzone-state').textContent = data.qzoneLoadFailed ? '加载未完成 · 可重试安装' : data.qzoneInstalled ? data.settings.qzone?.enable ? '已开启 · 待账号实测' : '已安装 · 未启用' : '未安装';
-  if(data.progress) paintProgress(data.progress); guide();
+  if(data.progress) paintProgress(data.progress); guide(); window.renderWorkspaceAvailability?.();
+  if(activeTab === 'workspace') window.workspaceLoad?.();
 }
 async function refresh() { if(refreshing) return; refreshing = true; try { render(await invoke('snapshot')); } catch(e) { toast(e.message,true); } finally { refreshing = false; } }
 async function action(name,input,success) {
@@ -191,6 +203,11 @@ async function save() { const result = await action('saveSettings',form(),'已�
 $('save-settings').onclick = save; document.querySelectorAll('.save-all').forEach(b => b.onclick = save);
 for(const id of ['ai-name','persona','model','trigger','prefix','active-enable','active-probability','active-groups','qzone-enable','publish-cron','comment-cron',...Object.keys(qKeys).map(k => 'qzone-'+k)]) $(id).addEventListener('input',() => { dirty = true; $('prefix-field').hidden = $('trigger').value !== 'prefix'; $('probability-label').textContent = $('active-probability').value+'%'; });
 document.querySelectorAll('[data-persona]').forEach(el => el.onclick = () => { $('persona').value = templates[el.dataset.persona]; dirty = true; });
+$('natural-style').onclick = () => {
+  const style = '【自然表达约束】\n直接回应当前话题，用具体事情、动作或感受表达观点。减少反复套用“不是……而是……”“真正的……是……”“你要明白”“某种意义上”等固定句式；有必要作对比时再用，不为升华而强行转折。不要每轮复述我的话、总结道理或夸奖提问。不把普通聊天写成分点讲课，不用排比和抽象词堆砌情绪。保持角色原有的性格、语气与说话长度；该开玩笑就接梗，该回答问题就直接回答。发送前默读一遍，删去重复的铺垫和套话，不展示检查过程。';
+  if(!$('persona').value.includes('【自然表达约束】')) { $('persona').value = ($('persona').value.trim()+'\n\n'+style).trim(); dirty = true; toast('已追加到当前草稿，可继续修改；保存后生效。'); }
+  else toast('当前草稿已有自然表达约束，可直接修改。');
+};
 function appearanceForm() { return { accent:$('accent').value,opacity:Number($('background-opacity').value)/100,blur:Number($('background-blur').value) }; }
 for(const id of ['accent','background-opacity','background-blur']) $(id).oninput = () => { themeDirty = true; applyAppearance({...snapshot.appearance,...appearanceForm()},false); };
 $('save-appearance').onclick = async () => { const value = await action('appearance',appearanceForm(),'小屋外观已保存。'); if(value) { themeDirty = false; applyAppearance(value); } };

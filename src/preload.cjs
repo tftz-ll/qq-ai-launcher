@@ -1,5 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
-const actions = new Set(['snapshot','pickFolder','inspect','install','start','stop','reconnect','testModel','saveSettings','openPanel','copyCredential','exportDiagnostic','appearance','verifyChain','installQzone','qzoneStatus','qzoneAction','pickQzoneImage','exit','hide']);
+const actions = new Set(['snapshot','pickFolder','inspect','install','start','stop','reconnect','testModel','saveSettings','openPanel','copyCredential','exportDiagnostic','appearance','verifyChain','installQzone','qzoneStatus','qzoneAction','pickQzoneImage','exit','hide','workspaceRead','workspaceSelect','workspacePersona','workspacePlugin','workspaceConversations','workspaceConversation','workspaceChat']);
 contextBridge.exposeInMainWorld('qqai', {
   invoke: async (action,input) => {
     if(!actions.has(action)) throw new Error('未知操作。');
